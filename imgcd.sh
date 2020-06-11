@@ -16,18 +16,19 @@ readonly ISOINFO=$(which isoinfo)     || die "Can't find 'isoinfo' command"
 readonly SENDMAIL=$(which ssmtp)      || die "Can't find 'ssmtp' command"
 readonly ADDRESS="$TXT"
 readonly CD_DEV="/dev/cdrom"
-readonly OUTPUT_DIR="."
-readonly OUTPUT_FORMAT="iso"
-readonly BLOCK_SIZE=2048
 
 ###############################################################################
 # Initialize
 # Initialize variables
 ###############################################################################
-TitleName="---"
-StartTime="---"
-EndTime="---"
-Status="---"
+TitleName=""
+StartTime=""
+EndTime=""
+Status=""
+BlockSize=""
+BlockCount=""
+OutputDir=""
+OutputFormat=""
 
 ###############################################################################
 # Colors
@@ -65,7 +66,6 @@ test_prereq () {
   [[ -x "$ISOSIZE" ]]     || die "Can't run $ISOSIZE; exiting!"
   [[ -x "$ISOINFO" ]]     || die "Can't run $ISOINFO; exiting!"
   [[ -r "$CD_DEV" ]]      || die "Can't read $DVD_DEV; exiting!"
-  [[ -w "$OUTPUT_DIR" ]]  || die "Can't write $OUTPUT_DIR; exiting!"
 }
 
 ###############################################################################
@@ -89,25 +89,29 @@ output_title () {
   printf '%b' "$CYAN"
   printf '=%.0s' {1..81}
   printf '\n'
-  printf '%b  Title Number:%b %-43s %b Started:%b  %-8s \n' \
+  printf '%b  Block Size:%b  %-43s %b Started:%b  %-8s \n' \
     "$GREEN" \
     "$WHITE" \
-    "$TitleNumber" \
+    "$BlockSize" \
     "$GREEN" \
     "$WHITE" \
     "$StartTime"
-  printf '%b  Title Name:  %b %-43s %b Finished:%b %-8s \n' \
+  printf '%b  Block Count:%b %-43s %b Finished:%b %-8s \n' \
     "$GREEN" \
     "$WHITE" \
-    "$TitleName" \
+    "$BlockCount" \
     "$GREEN" \
     "$WHITE" \
-    "$EndTime"
-  printf '%b  Saved As:    %b %-43s \n\n' \
+    "$StartTime"
+  printf '%b  Title Name: %b %-43s\n' \
     "$GREEN" \
     "$WHITE" \
-    "$OUTPUT_DIR$TitleName.$OUTPUT_FORMAT"
-  printf '%b  Status:      %b %-43s \n' \
+    "$TitleName" 
+  printf '%b  Saved As:   %b %-43s \n\n' \
+    "$GREEN" \
+    "$WHITE" \
+    "$OutputDir$TitleName$OutputFormat"
+  printf '%b  Status:     %b %-43s \n' \
     "$GREEN" \
     "$RED" \
     "$Status"
@@ -118,36 +122,39 @@ output_title () {
 }
 
 ###############################################################################
-# get_dvd_info ()
-# Use lsdvd to get DVD title and longest title number in the hope
-#   that the longest title is the one that is the movie
+# get_cd_info ()
+# Use isoinfo to get cd title and block information
 ###############################################################################
 get_cd_info () {
-  # get a lot of info from lsdvd and save it in a var
+	local cdinfo
+
+  # get a lot of info from isoinfo and save it in a var
   cdinfo=$($ISOINFO -d -i "$CD_DEV") || ""
 
   # extract the title name from the line that looks like
-  #   "Disc Title: <title>"
-  #TitleName=$(echo "$cdinfo" | awk -F": " '/Disc Title/ {print $2}')
+  #   "Volume id: <title>"
+  TitleName=$(echo "$cdinfo" | awk -F": " '/Volume id/ {print $2}')
 
-  # extract the longest track number from the line that looks like
-  #   "Longest track: <number>"
-  #TitleNumber=$(echo "$cdinfo" | awk -F": " '/Longest track/ {print $2}')
+  # extract the block size from the line that looks like
+  #   "Logical block size is: <number>"
+  BlockSize=$(echo "$cdinfo" | awk -F": " '/Logical block size is/ {print $2}')
+
+  # extract the block count from the line that looks like
+  #   "Volume size is: <number>"
+  BlockCount=$(echo "$cdinfo" | awk -F": " '/Volume size is/ {print $2}')
 }
 
 ###############################################################################
 # rip_it
-# Rip and encode the DVD using HandBrake command line tool
+# Rip the CD to an iso using dd
 ###############################################################################
 rip_it() {
-	local blocks=$("$ISOSIZE" -d "$BLOCK_SIZE" "$CD_DEV")
   "$DD" \
     if="$CD_DEV" \
-    of="$OUTPUT_DIR$TitleName.$OUTPUT_FORMAT" \
-    bs="$BLOCK_SIZE" \
-    count="$blocks" \
-    status=progress \
-    2> /dev/null
+    of="$OutputDir$TitleName$OutputFormat" \
+    bs="$BlockSize" \
+    count="$BlockCount" \
+    status=progress
 }
 
 ###############################################################################
@@ -155,8 +162,10 @@ rip_it() {
 # Loop until a disk is inserted
 ###############################################################################
 
-output_title
 test_prereq
+
+Status="Checking for Disc..."
+output_title
 
 while true; do
 
@@ -166,12 +175,14 @@ while true; do
     *'Disc found'*)
       StartTime=$($DATE +"%T")
       EndTime="---"
-      get_dvd_info
-      Status="Ripping..."
+      get_cd_info
+      Status="Imaging..."
+      OutputDir="./"
+      OutputFormat=".iso"
       output_title
       rip_it
       EndTime=$($DATE +"%T")
-      notify  "====================" "Encode Complete" "Title: $TitleName" \
+      notify  "====================" "Image Complete" "Title: $TitleName" \
         "Start: $StartTime" "End: $EndTime" "====================" 
       eject
     ;;
