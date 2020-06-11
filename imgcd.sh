@@ -12,9 +12,10 @@ readonly CLEAR=$(which clear)         || die "Can't find 'clear' command"
 readonly RIPPER=$(which HandBrakeCLI) || die "Can't find 'HandBreakCLI' command"
 readonly DD=$(which dd)               || die "Can't find 'dd' command"
 readonly ISOSIZE=$(which isosize)     || die "Can't find 'isosize' command"
+readonly ISOINFO=$(which isoinfo)     || die "Can't find 'isoinfo' command"
 readonly SENDMAIL=$(which ssmtp)      || die "Can't find 'ssmtp' command"
 readonly ADDRESS="$TXT"
-readonly CD="/dev/sr0"
+readonly CD_DEV="/dev/cdrom"
 readonly OUTPUT_DIR="."
 readonly OUTPUT_FORMAT="iso"
 readonly BLOCK_SIZE=2048
@@ -62,6 +63,7 @@ test_prereq () {
   [[ -x "$CLEAR" ]]       || die "Can't run $CLEAR; exiting!"
   [[ -x "$DD" ]]          || die "Can't run $DD; exiting!"
   [[ -x "$ISOSIZE" ]]     || die "Can't run $ISOSIZE; exiting!"
+  [[ -x "$ISOINFO" ]]     || die "Can't run $ISOINFO; exiting!"
   [[ -r "$CD_DEV" ]]      || die "Can't read $DVD_DEV; exiting!"
   [[ -w "$OUTPUT_DIR" ]]  || die "Can't write $OUTPUT_DIR; exiting!"
 }
@@ -120,17 +122,17 @@ output_title () {
 # Use lsdvd to get DVD title and longest title number in the hope
 #   that the longest title is the one that is the movie
 ###############################################################################
-get_dvd_info () {
+get_cd_info () {
   # get a lot of info from lsdvd and save it in a var
-  cdinfo=$($LSDVD -s) || ""
+  cdinfo=$($ISOINFO -d -i "$CD_DEV") || ""
 
   # extract the title name from the line that looks like
   #   "Disc Title: <title>"
-  TitleName=$(echo "$cdinfo" | awk -F": " '/Disc Title/ {print $2}')
+  #TitleName=$(echo "$cdinfo" | awk -F": " '/Disc Title/ {print $2}')
 
   # extract the longest track number from the line that looks like
   #   "Longest track: <number>"
-  TitleNumber=$(echo "$cdinfo" | awk -F": " '/Longest track/ {print $2}')
+  #TitleNumber=$(echo "$cdinfo" | awk -F": " '/Longest track/ {print $2}')
 }
 
 ###############################################################################
