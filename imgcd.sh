@@ -102,7 +102,7 @@ output_title () {
     "$BlockCount" \
     "$GREEN" \
     "$WHITE" \
-    "$StartTime"
+    "$EndTime"
   printf '%b  Title Name: %b %-43s\n' \
     "$GREEN" \
     "$WHITE" \
