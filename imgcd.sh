@@ -133,7 +133,11 @@ get_cd_info () {
 
   # extract the title name from the line that looks like
   #   "Volume id: <title>"
-  TitleName=$(echo "$cdinfo" | awk -F": " '/Volume id/ {print $2}')
+	TitleName=$(echo "$cdinfo" | awk -F": " '/Volume id/ {print $2}')
+	if [ -z "$TitleName" ]
+	then
+		TitleName="Rip-$StartDay-$StartTime"
+	fi
 
   # extract the block size from the line that looks like
   #   "Logical block size is: <number>"
@@ -173,6 +177,7 @@ while true; do
 
   case "$cdstatus" in
     *'Disc found'*)
+			StartDay=$($DATE +"%F")
       StartTime=$($DATE +"%T")
       EndTime="---"
       get_cd_info
