@@ -10,12 +10,13 @@ readonly LSDVD=$(which lsdvd)         || die "Can't find 'lsdvd' command"
 readonly SETCD=$(which setcd)         || die "Can't find 'setcd' command"
 readonly CLEAR=$(which clear)         || die "Can't find 'clear' command"
 readonly RIPPER=$(which HandBrakeCLI) || die "Can't find 'HandBreakCLI' command"
-readonly DD=$(which dd)               || die "Can't find 'dd' command"
+readonly DD=$(which ddrescue)         || die "Can't find 'ddrescue' command"
 readonly ISOSIZE=$(which isosize)     || die "Can't find 'isosize' command"
 readonly ISOINFO=$(which isoinfo)     || die "Can't find 'isoinfo' command"
 readonly SENDMAIL=$(which ssmtp)      || die "Can't find 'ssmtp' command"
 readonly ADDRESS="$TXT"
 readonly CD_DEV="/dev/cdrom"
+readonly MAP="/tmp/ddrescue.map"
 
 ###############################################################################
 # Initialize
@@ -51,7 +52,7 @@ die () { printf '%b %s %b \n' "$RED" "$@" "$WHITE" 1>&2; exit 1; }
 # Send notice via email
 ###############################################################################
 notify() { 
-	printf "%s\n" "$@" | "$SENDMAIL" "$ADDRESS" 
+  printf "%s\n" "$@" | "$SENDMAIL" "$ADDRESS" 
 }
 
 ###############################################################################
@@ -126,18 +127,18 @@ output_title () {
 # Use isoinfo to get cd title and block information
 ###############################################################################
 get_cd_info () {
-	local cdinfo
+  local cdinfo
 
   # get a lot of info from isoinfo and save it in a var
   cdinfo=$($ISOINFO -d -i "$CD_DEV") || ""
 
   # extract the title name from the line that looks like
   #   "Volume id: <title>"
-	TitleName=$(echo "$cdinfo" | awk -F": " '/Volume id/ {print $2}')
-	if [ -z "$TitleName" ]
-	then
-		TitleName="Rip-$StartDay-$StartTime"
-	fi
+  TitleName=$(echo "$cdinfo" | awk -F": " '/Volume id/ {print $2}')
+  if [ -z "$TitleName" ]
+  then
+    TitleName="Rip-$StartDay-$StartTime"
+  fi
 
   # extract the block size from the line that looks like
   #   "Logical block size is: <number>"
@@ -153,12 +154,18 @@ get_cd_info () {
 # Rip the CD to an iso using dd
 ###############################################################################
 rip_it() {
+
   "$DD" \
-    if="$CD_DEV" \
-    of="$OutputDir$TitleName$OutputFormat" \
-    bs="$BlockSize" \
-    count="$BlockCount" \
-    status=progress
+    "$CD_DEV" \
+    "$OutputDir$TitleName$OutputFormat" \
+    "$MAP"
+
+  #"$DD" \
+    #if="$CD_DEV" \
+    #of="$OutputDir$TitleName$OutputFormat" \
+    #bs="$BlockSize" \
+    #count="$BlockCount" \
+    #status=progress
 }
 
 ###############################################################################
@@ -177,7 +184,7 @@ while true; do
 
   case "$cdstatus" in
     *'Disc found'*)
-			StartDay=$($DATE +"%F")
+      StartDay=$($DATE +"%F")
       StartTime=$($DATE +"%T")
       EndTime="---"
       get_cd_info
